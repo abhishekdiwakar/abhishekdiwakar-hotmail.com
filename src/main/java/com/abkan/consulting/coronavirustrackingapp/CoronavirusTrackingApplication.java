@@ -2,12 +2,14 @@ package com.abkan.consulting.coronavirustrackingapp;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
-public class CoronavirusTrackingAppApplication {
+@EnableScheduling
+public class CoronavirusTrackingApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(CoronavirusTrackingAppApplication.class, args);
+		SpringApplication.run(CoronavirusTrackingApplication.class, args);
 	}
 
 }
