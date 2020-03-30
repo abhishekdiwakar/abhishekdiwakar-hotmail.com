@@ -3,6 +3,7 @@ package com.abkan.consulting.coronavirustrackingapp.service;
 import com.abkan.consulting.coronavirustrackingapp.model.ConfirmedData;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -21,16 +22,17 @@ import java.util.List;
 @Service
 public class CoronaVirusDataService {
 
-    private static final String DATA_SOURCE_URL = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv";
+    @Value("${confirmed.data.url}")
+    private String confirrmedDataSourceUrl;
 
-    List<ConfirmedData> allData = new ArrayList<>();
+    private List<ConfirmedData> allData = new ArrayList<>();
 
     @PostConstruct
     @Scheduled(cron = "* * 1 * * *")
     public void fetchData() throws IOException, InterruptedException {
         HttpClient httpClient = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(DATA_SOURCE_URL))
+                .uri(URI.create(confirrmedDataSourceUrl))
                 .build();
         HttpResponse<String> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         readCSVData(httpResponse.body());
@@ -42,13 +44,25 @@ public class CoronaVirusDataService {
         List<ConfirmedData> confirmedData = new ArrayList<>();
         for (CSVRecord record : records) {
             ConfirmedData data = ConfirmedData.builder()
-                    .state(record.get("Province/State"))
+                    .state(getState(record))
                     .country(record.get("Country/Region"))
                     .totalCount(Integer.parseInt(record.get(record.size()-1)))
                     .build();
             confirmedData.add(data);
-           System.out.println(data);
         }
         allData.addAll(confirmedData);
     }
+
+    private String getState(CSVRecord record) {
+        return record.get("Province/State").isEmpty() ? record.get("Country/Region") : record.get("Province/State");
+    }
+
+    public List<ConfirmedData> getAllData() {
+        return allData;
+    }
+
+    public Integer getTotalReportedCases() {
+        return allData.stream().mapToInt(ConfirmedData::getTotalCount).sum();
+    }
+
 }
