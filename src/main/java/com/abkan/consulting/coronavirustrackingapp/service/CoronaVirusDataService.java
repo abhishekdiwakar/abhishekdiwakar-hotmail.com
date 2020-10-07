@@ -1,68 +1,74 @@
 package com.abkan.consulting.coronavirustrackingapp.service;
 
 import com.abkan.consulting.coronavirustrackingapp.model.ConfirmedData;
+import com.abkan.consulting.coronavirustrackingapp.webclient.WebClient;
+import java.io.IOException;
+import java.io.StringReader;
+import java.net.http.HttpResponse;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import javax.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.Reader;
-import java.io.StringReader;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.util.ArrayList;
-import java.util.List;
-
 @Service
+@Slf4j
 public class CoronaVirusDataService {
 
-    @Value("${confirmed.data.url}")
-    private String confirrmedDataSourceUrl;
+  @Value("${confirmed.data.url}")
+  private String confirrmedDataSourceUrl;
 
-    private List<ConfirmedData> allData = new ArrayList<>();
+  @Autowired private WebClient webClient;
 
-    @PostConstruct
-    @Scheduled(cron = "* * 1 * * *")
-    public void fetchData() throws IOException, InterruptedException {
-        HttpClient httpClient = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(confirrmedDataSourceUrl))
-                .build();
-        HttpResponse<String> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        readCSVData(httpResponse.body());
+  private List<ConfirmedData> allData = new ArrayList<>();
+
+  @PostConstruct
+  @Scheduled(cron = "* * 1 * * *")
+  public List<ConfirmedData> getAllConfirmedCases() {
+    try {
+      HttpResponse<String> response = webClient.sendRequest(confirrmedDataSourceUrl);
+      return readCSVData(response.body());
+    } catch (Exception exception) {
+      log.error(
+          "An exception occurred while fetching the confirmed cases {}", exception.getMessage());
+      return Collections.emptyList();
     }
+  }
 
-    private void readCSVData(String dataString) throws IOException {
-        StringReader reader = new StringReader(dataString);
-        Iterable<CSVRecord> records = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(reader);
-        List<ConfirmedData> confirmedData = new ArrayList<>();
-        for (CSVRecord record : records) {
-            ConfirmedData data = ConfirmedData.builder()
-                    .state(getState(record))
-                    .country(record.get("Country/Region"))
-                    .totalCount(Integer.parseInt(record.get(record.size()-1)))
-                    .build();
-            confirmedData.add(data);
-        }
-        allData.addAll(confirmedData);
+  private List<ConfirmedData> readCSVData(String dataString) throws IOException {
+    StringReader reader = new StringReader(dataString);
+    Iterable<CSVRecord> records = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(reader);
+    List<ConfirmedData> confirmedData = new ArrayList<>();
+    for (CSVRecord record : records) {
+      ConfirmedData data =
+          ConfirmedData.builder()
+              .state(getState(record))
+              .country(record.get("Country/Region"))
+              .totalCount(Integer.parseInt(record.get(record.size() - 1)))
+              .build();
+      confirmedData.add(data);
     }
+    allData.addAll(confirmedData);
+    return confirmedData;
+  }
 
-    private String getState(CSVRecord record) {
-        return record.get("Province/State").isEmpty() ? record.get("Country/Region") : record.get("Province/State");
-    }
+  private String getState(CSVRecord record) {
+    return record.get("Province/State").isEmpty()
+        ? record.get("Country/Region")
+        : record.get("Province/State");
+  }
 
-    public List<ConfirmedData> getAllData() {
-        return allData;
-    }
+  public List<ConfirmedData> getAllData() {
+    return allData;
+  }
 
-    public Integer getTotalReportedCases() {
-        return allData.stream().mapToInt(ConfirmedData::getTotalCount).sum();
-    }
-
+  public Integer getTotalReportedCases() {
+    return allData.stream().mapToInt(ConfirmedData::getTotalCount).sum();
+  }
 }
