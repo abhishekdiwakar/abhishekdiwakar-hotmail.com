@@ -1,3 +1,13 @@
+spring:
+  application:
+    name: coronavirus-tracking-app
+
+logging:
+  config: classpath:logback-spring.xml
+  level:
+    root: INFO
+    com.abkan.consulting: INFO
+
 data:
   base:
     url:
@@ -7,3 +17,4 @@ confirmed:
   data:
     url:
       ${data.base.url}/time_series_covid19_confirmed_global.csv
+
